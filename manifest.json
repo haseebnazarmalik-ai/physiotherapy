@@ -1,0 +1,18 @@
+{
+  "name": "Elbow Recovery Tracker",
+  "short_name": "ElbowRehab",
+  "description": "Continuous Elbow Exercise Action & Motion Loop",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#2c3e50",
+  "theme_color": "#4a90e2",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "https://cdn-icons-png.flaticon.com/512/3048/3048398.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
