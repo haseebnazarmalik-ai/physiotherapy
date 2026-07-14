@@ -1,0 +1,515 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Elbow Rehab: Dynamic Motion Guide</title>
+    <!-- PWA Manifest Link -->
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#4a90e2">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <link rel="apple-touch-icon" href="https://cdn-icons-png.flaticon.com/512/3048/3048398.png">
+
+    <style>
+        :root {
+            --bg-color: #f4f7f6;
+            --primary: #4a90e2;
+            --success: #2ecc71; /* Flexion */
+            --extension: #9b59b6; /* Extension */
+            --warning: #f1c40f; /* Moving / Rest */
+            --danger: #e74c3c;
+            --dark: #2c3e50;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--dark);
+            display: flex;
+            justify-content: center;
+            align-items: flex-start;
+            min-height: 100vh;
+            padding: 15px;
+        }
+
+        .app-container {
+            width: 100%;
+            max-width: 480px;
+            background: white;
+            border-radius: 20px;
+            padding: 20px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.08);
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 15px;
+        }
+
+        header h1 {
+            font-size: 1.5rem;
+        }
+
+        header p {
+            font-size: 0.85rem;
+            color: #7f8c8d;
+        }
+
+        /* Active Timer Display Zone */
+        .timer-display-box {
+            background: #f8f9fa;
+            border-radius: 15px;
+            padding: 20px;
+            text-align: center;
+            margin-bottom: 15px;
+            border: 2px solid #e9ecef;
+            transition: all 0.3s ease;
+        }
+
+        .timer-display-box.state-moving { background-color: rgba(241, 196, 15, 0.12); border-color: var(--warning); }
+        .timer-display-box.state-flexion { background-color: rgba(46, 204, 113, 0.12); border-color: var(--success); }
+        .timer-display-box.state-extension { background-color: rgba(155, 89, 182, 0.12); border-color: var(--extension); }
+
+        .current-status {
+            font-size: 1.1rem;
+            font-weight: bold;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .countdown {
+            font-size: 4rem;
+            font-weight: 800;
+            line-height: 1;
+            margin: 5px 0;
+            font-variant-numeric: tabular-nums;
+        }
+
+        /* --- BAZO ANIMATION SYSTEM --- */
+        .arm-wrapper {
+            height: 140px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 15px 0;
+            position: relative;
+        }
+
+        .arm-container {
+            position: relative;
+            width: 160px;
+            height: 100px;
+        }
+
+        /* Upper Arm (Fixed) */
+        .upper-arm {
+            position: absolute;
+            width: 70px;
+            height: 16px;
+            background-color: #34495e;
+            border-radius: 8px;
+            left: 20px;
+            top: 40px;
+            transform-origin: right center;
+        }
+
+        /* Elbow Joint */
+        .elbow-joint {
+            position: absolute;
+            width: 24px;
+            height: 24px;
+            background-color: #e67e22;
+            border-radius: 50%;
+            left: 80px;
+            top: 36px;
+            z-index: 2;
+        }
+
+        /* Forearm (Rotates smoothly during transitions) */
+        .forearm {
+            position: absolute;
+            width: 70px;
+            height: 14px;
+            background-color: #2980b9;
+            border-radius: 7px;
+            left: 92px;
+            top: 41px;
+            transform-origin: left center;
+            transform: rotate(-90deg); /* Starts fully bent (Flexion) */
+            transition: transform 1s linear; /* 1 second linear steps for real-time tracking */
+        }
+
+        /* Hand Indicator */
+        .hand {
+            position: absolute;
+            width: 16px;
+            height: 16px;
+            background-color: #e74c3c;
+            border-radius: 50%;
+            right: -6px;
+            top: -1px;
+        }
+
+        .exercise-meta {
+            font-size: 0.95rem;
+            color: #333;
+            font-weight: 700;
+            background: #e9ecef;
+            padding: 6px 15px;
+            border-radius: 20px;
+            display: inline-block;
+        }
+
+        /* Session Timer */
+        .session-timer-box {
+            text-align: center;
+            background: #2c3e50;
+            color: #fff;
+            padding: 10px;
+            border-radius: 12px;
+            font-size: 0.95rem;
+            font-weight: 600;
+            margin-bottom: 20px;
+        }
+
+        .session-timer-box span {
+            font-weight: 800;
+            color: var(--warning);
+        }
+
+        /* Controls */
+        .main-controls {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+
+        .btn {
+            flex: 1;
+            padding: 15px;
+            border: none;
+            border-radius: 12px;
+            font-size: 1rem;
+            font-weight: bold;
+            cursor: pointer;
+            transition: transform 0.1s;
+        }
+
+        .btn:active { transform: scale(0.97); }
+        .btn-primary { background-color: var(--primary); color: white; }
+        .btn-danger { background-color: var(--danger); color: white; }
+        .btn-success { background-color: var(--success); color: white; }
+
+        /* Configurator */
+        .section-title {
+            font-size: 0.9rem;
+            margin-bottom: 8px;
+            color: #7f8c8d;
+            text-transform: uppercase;
+        }
+
+        .custom-config {
+            background: #fdfdfd;
+            border: 1px solid #e9ecef;
+            border-radius: 15px;
+            padding: 15px;
+        }
+
+        .form-group {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .counter-control {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .counter-btn {
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            border: 1px solid #ccc;
+            background: white;
+            font-size: 1.2rem;
+            font-weight: bold;
+            cursor: pointer;
+        }
+
+        .counter-val {
+            font-weight: bold;
+            width: 30px;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+
+<div class="app-container">
+    <header>
+        <h1>Elbow Recovery Tracker</h1>
+        <p>Continuous Action & Motion Loop</p>
+    </header>
+
+    <!-- Main Timer & Animation Area -->
+    <div class="timer-display-box" id="displayBox">
+        <div class="current-status" id="statusLabel">Tap Start</div>
+        
+        <!-- Graphic Arm Animation Area -->
+        <div class="arm-wrapper">
+            <div class="arm-container">
+                <div class="upper-arm"></div>
+                <div class="elbow-joint"></div>
+                <div class="forearm" id="forearmGraphic"><div class="hand"></div></div>
+            </div>
+        </div>
+
+        <div class="countdown" id="timerDigits">00</div>
+        <div class="exercise-meta" id="metaInfo">Cycle: 0 | Hold Time: 5s</div>
+    </div>
+
+    <!-- Total Session Stopwatch -->
+    <div class="session-timer-box">
+        Total Exercise Time: <span id="sessionDuration">00:00</span>
+    </div>
+
+    <!-- Master Controls -->
+    <div class="main-controls">
+        <button class="btn btn-success" id="btnStart" onclick="toggleTimer()">Start Workout</button>
+        <button class="btn btn-danger" id="btnReset" onclick="resetTimer()">Reset</button>
+    </div>
+
+    <!-- Motion / Transition Configurator -->
+    <div class="section-title">Customize Movement Time</div>
+    <div class="custom-config">
+        <div class="form-group">
+            <label style="font-size: 0.9rem; font-weight: 600;">Moving Time (seconds)</label>
+            <div class="counter-control">
+                <button class="counter-btn" onclick="adjustRest(-1)">-</button>
+                <span class="counter-val" id="cfgRest">10</span>
+                <button class="counter-btn" onclick="adjustRest(1)">+</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // Audio Context Setup for Beep Sounds
+    let audioCtx = null;
+    function playBeep(frequency = 800, duration = 0.15) {
+        try {
+            if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            let osc = audioCtx.createOscillator();
+            let gain = audioCtx.createGain();
+            osc.type = "sine";
+            osc.frequency.value = frequency;
+            gain.gain.setValueAtTime(0.15, audioCtx.currentTime);
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+            osc.start();
+            osc.stop(audioCtx.currentTime + duration);
+        } catch(e) { console.log("Audio play blocked or unsupported"); }
+    }
+
+    // System Configurations
+    let movingTime = 10; // Time taken to move between positions
+    let startHoldTime = 5; 
+    let maxHoldTime = 30; 
+    
+    // Runtime variables
+    let timerInterval = null;
+    let isRunning = false;
+    let cycleCount = 0; 
+    let currentHoldTime = startHoldTime; 
+    let timeLeft = 0;
+    let totalSecondsElapsed = 0;
+
+    // States: IDLE, FLEXION_HOLD, MOVING_DOWN, EXTENSION_HOLD, MOVING_UP
+    let currentState = 'IDLE'; 
+
+    // Update Visuals and Dynamic Arm Movements
+    function updateUI() {
+        const displayBox = document.getElementById('displayBox');
+        const statusLabel = document.getElementById('statusLabel');
+        const timerDigits = document.getElementById('timerDigits');
+        const metaInfo = document.getElementById('metaInfo');
+        const btnStart = document.getElementById('btnStart');
+        const forearm = document.getElementById('forearmGraphic');
+
+        timerDigits.innerText = timeLeft < 10 ? '0' + timeLeft : timeLeft;
+        displayBox.className = 'timer-display-box';
+
+        switch(currentState) {
+            case 'IDLE':
+                statusLabel.innerText = "Ready to Start";
+                displayBox.classList.add('state-moving');
+                metaInfo.innerText = `Cycles Done: ${cycleCount} | Next Hold: ${currentHoldTime}s`;
+                forearm.style.transform = "rotate(-90deg)"; // Starts bent
+                break;
+                
+            case 'FLEXION_HOLD':
+                statusLabel.innerText = "FLEXION HOLD (Bend)";
+                displayBox.classList.add('state-flexion');
+                metaInfo.innerText = `Hold bend position! | Cycle: ${cycleCount + 1}`;
+                forearm.style.transform = "rotate(-90deg)"; // Locked at uper (bend)
+                break;
+                
+            case 'MOVING_DOWN':
+                statusLabel.innerText = "Moving Down (Extension)...";
+                displayBox.classList.add('state-moving');
+                metaInfo.innerText = `Relax & straighten slowly | Cycle: ${cycleCount + 1}`;
+                
+                // Calculates progression from -90deg (fully bent) to 0deg (fully straight) over movingTime
+                let downProgress = (movingTime - timeLeft) / movingTime;
+                let downAngle = -90 + (downProgress * 90);
+                forearm.style.transform = `rotate(${downAngle}deg)`;
+                break;
+                
+            case 'EXTENSION_HOLD':
+                statusLabel.innerText = "EXTENSION HOLD (Straight)";
+                displayBox.classList.add('state-extension');
+                metaInfo.innerText = `Hold straight position! | Cycle: ${cycleCount + 1}`;
+                forearm.style.transform = "rotate(0deg)"; // Locked at niche (straight)
+                break;
+
+            case 'MOVING_UP':
+                statusLabel.innerText = "Moving Up (Flexion)...";
+                displayBox.classList.add('state-moving');
+                metaInfo.innerText = `Bend your elbow slowly | Cycle: ${cycleCount + 1}`;
+                
+                // Calculates progression from 0deg (fully straight) to -90deg (fully bent) over movingTime
+                let upProgress = (movingTime - timeLeft) / movingTime;
+                let upAngle = upProgress * -90;
+                forearm.style.transform = `rotate(${upAngle}deg)`;
+                break;
+        }
+
+        btnStart.innerText = isRunning ? "Pause" : "Start Workout";
+        btnStart.className = isRunning ? "btn btn-primary" : "btn btn-success";
+    }
+
+    function formatSessionTime() {
+        const mins = Math.floor(totalSecondsElapsed / 60);
+        const secs = totalSecondsElapsed % 60;
+        const displayMins = mins < 10 ? '0' + mins : mins;
+        const displaySecs = secs < 10 ? '0' + secs : secs;
+        document.getElementById('sessionDuration').innerText = `${displayMins}:${displaySecs}`;
+    }
+
+    function adjustRest(val) {
+        if (isRunning) return;
+        movingTime = Math.max(2, movingTime + val);
+        document.getElementById('cfgRest').innerText = movingTime;
+        resetTimer();
+    }
+
+    function startSequence() {
+        cycleCount = 0;
+        currentHoldTime = startHoldTime;
+        currentState = 'FLEXION_HOLD'; // Direct start on flexion hold
+        timeLeft = currentHoldTime; 
+        totalSecondsElapsed = 0;
+        formatSessionTime();
+        updateUI();
+    }
+
+    // Start / Pause
+    function toggleTimer() {
+        if (isRunning) {
+            clearInterval(timerInterval);
+            isRunning = false;
+            updateUI();
+        } else {
+            if (currentState === 'IDLE') {
+                startSequence();
+            }
+            isRunning = true;
+            timerInterval = setInterval(tick, 1000);
+            updateUI();
+        }
+    }
+
+    // Main Ticking Logic
+    function tick() {
+        totalSecondsElapsed++;
+        formatSessionTime();
+
+        if (timeLeft > 1) {
+            timeLeft--;
+            
+            // Beep ONLY during active hold times (FLEXION & EXTENSION)
+            if (timeLeft <= 3 && (currentState === 'FLEXION_HOLD' || currentState === 'EXTENSION_HOLD')) {
+                playBeep(900, 0.12);
+            }
+        } else {
+            // Beep when active hold ends
+            if (currentState === 'FLEXION_HOLD' || currentState === 'EXTENSION_HOLD') {
+                playBeep(600, 0.3);
+            }
+
+            // State Transitions
+            if (currentState === 'FLEXION_HOLD') {
+                // Transition to moving down (10 seconds)
+                currentState = 'MOVING_DOWN';
+                timeLeft = movingTime;
+            } 
+            else if (currentState === 'MOVING_DOWN') {
+                // Transition to Extension Hold (Starts at 5s, progressive)
+                currentState = 'EXTENSION_HOLD';
+                timeLeft = currentHoldTime;
+            } 
+            else if (currentState === 'EXTENSION_HOLD') {
+                // Transition to moving up (10 seconds)
+                currentState = 'MOVING_UP';
+                timeLeft = movingTime;
+            } 
+            else if (currentState === 'MOVING_UP') {
+                // One full cycle completed!
+                cycleCount++;
+                if (currentHoldTime < maxHoldTime) {
+                    currentHoldTime++; // Increase hold times by 1 second
+                }
+                
+                // Back to Flexion hold of the next cycle
+                currentState = 'FLEXION_HOLD';
+                timeLeft = currentHoldTime;
+            }
+        }
+        updateUI();
+    }
+
+    function resetTimer() {
+        clearInterval(timerInterval);
+        isRunning = false;
+        cycleCount = 0;
+        currentHoldTime = startHoldTime;
+        currentState = 'IDLE';
+        timeLeft = 0;
+        totalSecondsElapsed = 0;
+        formatSessionTime();
+        updateUI();
+    }
+
+    updateUI();
+
+    // --- PWA Service Worker Registration Script ---
+    if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+            navigator.serviceWorker.register('./sw.js')
+                .then(reg => console.log('Service Worker Registered Successfully!', reg.scope))
+                .catch(err => console.log('Service Worker Registration Failed:', err));
+        });
+    }
+</script>
+
+</body>
+</html>
